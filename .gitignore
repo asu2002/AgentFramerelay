@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Virtual environments
+.venv/
+.venv-1/
+venv/
+env/
+test-release-env/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Ruff
+.ruff_cache/
+
+# Build
+build/
+dist/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example

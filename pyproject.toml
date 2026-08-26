@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agentframerelay"
+version = "0.1.0"
+description = "Framework-neutral portability layer for AI agents, tools, and model providers."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = ["pydantic>=2.7,<3"]
+
+[project.optional-dependencies]
+langgraph = ["langchain>=1.0", "langchain-core>=1.0", "langchain-litellm>=0.1", "langgraph>=1.0"]
+crewai = ["crewai>=0.100"]
+openai = ["openai-agents>=0.1", "openai>=1.0"]
+litellm = ["litellm>=1.0"]
+google-adk = ["google-adk>=1.0"]
+mcp = ["mcp>=1.0"]
+examples = ["python-dotenv>=1.0"]
+dev = ["pytest>=8", "pytest-asyncio>=0.24", "ruff>=0.8"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agentframerelay"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
