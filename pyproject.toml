@@ -12,6 +12,7 @@ license = { text = "MIT" }
 dependencies = ["pydantic>=2.7,<3"]
 
 [project.optional-dependencies]
+langchain = ["langchain>=1.0", "langchain-core>=1.0", "langchain-litellm>=0.1", "langgraph>=1.0"]
 langgraph = ["langchain>=1.0", "langchain-core>=1.0", "langchain-litellm>=0.1", "langgraph>=1.0"]
 crewai = ["crewai>=0.100"]
 openai = ["openai-agents>=0.1", "openai>=1.0"]

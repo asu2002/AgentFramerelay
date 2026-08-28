@@ -13,7 +13,7 @@ def _load_runtime(name):
         return _RUNTIME_ADAPTERS[name]
 
     aliases = {
-        "langchain": "langgraph",
+        "langgraph": "langchain",
         "adk": "google_adk",
         "google-adk": "google_adk",
         "openai_agents": "openai",
@@ -21,9 +21,9 @@ def _load_runtime(name):
     }
     name = aliases.get(name, name)
 
-    if name == "langgraph":
-        from .adapters.langgraph import LangGraphAdapter
-        adapter = LangGraphAdapter
+    if name == "langchain":
+        from .adapters.langchain import LangChainAdapter
+        adapter = LangChainAdapter
     elif name == "crewai":
         from .adapters.crewai import CrewAIAdapter
         adapter = CrewAIAdapter
