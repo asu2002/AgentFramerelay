@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentframerelay"
-version = "0.1.0"
+version = "0.1.1"
 description = "Framework-neutral portability layer for AI agents, tools, and model providers."
 readme = "README.md"
 requires-python = ">=3.10"
