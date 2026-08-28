@@ -6,7 +6,7 @@ The core owns neutral specifications. Adapters own framework-specific APIs.
 AgentSpec
    |
    +-- RuntimeAdapter
-   |      +-- LangGraph
+   |      +-- LangChain
    |      +-- CrewAI
    |      +-- OpenAI Agents
    |      +-- Google ADK

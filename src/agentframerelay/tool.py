@@ -140,8 +140,8 @@ class Tool:
         }}
 
     def to_langchain(self):
-        from .adapters.langgraph import LangGraphAdapter
-        return LangGraphAdapter.tool(self)
+        from .adapters.langchain import LangChainAdapter
+        return LangChainAdapter.tool(self)
 
     def to_crewai(self):
         from .adapters.crewai import CrewAIAdapter

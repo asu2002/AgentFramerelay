@@ -2,6 +2,7 @@ from importlib import import_module
 
 
 _ADAPTER_MODULES = {
+    "LangChainAdapter": ".langchain",
     "LangGraphAdapter": ".langgraph",
     "CrewAIAdapter": ".crewai",
     "OpenAIAgentsAdapter": ".openai_agents",
@@ -10,6 +11,7 @@ _ADAPTER_MODULES = {
 }
 
 __all__ = [
+    "LangChainAdapter",
     "LangGraphAdapter",
     "CrewAIAdapter",
     "OpenAIAgentsAdapter",

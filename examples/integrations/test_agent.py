@@ -34,7 +34,7 @@ def multiply(a: int, b: int) -> int:
 
 agent = Agent(
     name="math-agent",
-    runtime="langgraph",
+    runtime="langchain",
     model={
         "provider": "groq",
         "model": "openai/gpt-oss-20b",

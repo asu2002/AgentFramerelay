@@ -35,7 +35,7 @@ def multiply(a: int, b: int) -> int:
 agent = Agent(
     name="math-agent",
 
-    runtime="langgraph",
+    runtime="langchain",
 
     instructions="""
     Always use tools for mathematical calculations.

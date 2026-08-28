@@ -2,8 +2,8 @@ from ..runtime import RuntimeAdapter, RuntimeResult
 from ..specs import AgentSpec
 from ..tool import Tool
 
-class LangGraphAdapter(RuntimeAdapter):
-    name = "langgraph"
+class LangChainAdapter(RuntimeAdapter):
+    name = "langchain"
 
     @classmethod
     def tool(cls, tool: Tool):
@@ -11,7 +11,7 @@ class LangGraphAdapter(RuntimeAdapter):
             from langchain_core.tools import StructuredTool
         except ImportError as exc:
             raise ImportError(
-                "Install with: pip install 'agentframerelay[langgraph]'"
+                "Install with: pip install 'agentframerelay[langchain]'"
             ) from exc
         return StructuredTool.from_function(
             func=tool.function, name=tool.name, description=tool.description
@@ -23,10 +23,10 @@ class LangGraphAdapter(RuntimeAdapter):
             from langchain.agents import create_agent
         except ImportError as exc:
             raise ImportError(
-                "Install with: pip install 'agentframerelay[langgraph]'"
+                "Install with: pip install 'agentframerelay[langchain]'"
             ) from exc
         if not spec.model:
-            raise ValueError("A model is required for the LangGraph adapter.")
+            raise ValueError("A model is required for the LangChain adapter.")
         model = _resolve_model(spec.model)
         tools = [cls.tool(Tool(t.function, name=t.name, description=t.description))
                  for t in spec.tools]
@@ -45,6 +45,9 @@ class LangGraphAdapter(RuntimeAdapter):
     def capabilities(cls):
         return {"streaming": True, "memory": True, "human_in_loop": True,
                 "durable_execution": True, "multi_agent": True}
+
+
+LangGraphAdapter = LangChainAdapter
 
 def _resolve_model(model_spec):
 

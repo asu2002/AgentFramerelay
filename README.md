@@ -8,7 +8,7 @@
 - Pydantic/JSON schemas
 - Framework-neutral `Agent`
 - Runtime adapter interface
-- LangGraph and CrewAI agent runtimes
+- LangChain and CrewAI agent runtimes
 - OpenAI Agents and Google ADK agent runtimes
 - LiteLLM agent runtime and OpenAI-compatible tool schemas
 - MCP/FastMCP tool registration
@@ -30,7 +30,7 @@ agent = Agent(
     name="customer-agent",
     instructions="Help with customer lookup.",
     tools=[search_customer],
-    runtime="mock",
+    runtime="langchain",
 )
 
 print(agent.run({"input": "Find customer 123"}))
@@ -39,7 +39,7 @@ print(agent.run({"input": "Find customer 123"}))
 Install an adapter only when needed:
 
 ```bash
-pip install "agentframerelay[langgraph]"
+pip install "agentframerelay[langchain]"
 pip install "agentframerelay[crewai]"
 pip install "agentframerelay[openai]"
 pip install "agentframerelay[litellm]"
