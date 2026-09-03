@@ -1,6 +1,10 @@
 from __future__ import annotations
-from typing import Any, Callable
+
+from collections.abc import Callable
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
+
 
 class ToolSpec(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -8,6 +12,9 @@ class ToolSpec(BaseModel):
     description: str
     input_schema: dict[str, Any]
     function: Callable[..., Any]
+    # Retains the core execution object when a spec originates from ``Tool``.
+    # ``function`` remains available for manually-created and serialized specs.
+    tool: Any = None
 
 class ModelSpec(BaseModel):
     provider: str

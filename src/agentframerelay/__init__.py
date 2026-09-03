@@ -6,12 +6,24 @@ from .errors import (
     ToolExecutionError,
     ToolInputError,
 )
-from .tool import Tool, tool
-from .specs import AgentSpec, ModelSpec, ToolSpec
 from .runtime import AgentResult, RuntimeAdapter, RuntimeResult
+from .specs import AgentSpec, ModelSpec, ToolSpec
+from .tool import Tool, ToolContext, tool
 
 __all__ = [
-    "Agent", "Tool", "tool", "AgentSpec", "ModelSpec", "ToolSpec",
-    "AgentResult", "RuntimeAdapter", "RuntimeResult", "AgentFrameRelayError",
-    "ToolError", "ToolInputError", "ToolExecutionError", "AsyncToolError",
+    "Agent",
+    "AgentFrameRelayError",
+    "AgentResult",
+    "AgentSpec",
+    "AsyncToolError",
+    "ModelSpec",
+    "RuntimeAdapter",
+    "RuntimeResult",
+    "Tool",
+    "ToolContext",
+    "ToolError",
+    "ToolExecutionError",
+    "ToolInputError",
+    "ToolSpec",
+    "tool",
 ]

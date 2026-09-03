@@ -92,9 +92,12 @@ class CrewAIAdapter:
 
         provider = (
             model_spec.provider or ""
-        ).strip()
+        ).strip().lower()
 
         model = model_spec.model
+
+        if provider in {"google", "google_ai", "gemini"}:
+            provider = "gemini"
 
         # -----------------------------------------------------
         # Build provider/model name
@@ -144,21 +147,18 @@ class CrewAIAdapter:
         into a native CrewAI tool.
         """
 
-        original_function = relay_tool.function
+        original_function = relay_tool.adapter_callable()
 
         @crew_tool(relay_tool.name)
         @wraps(original_function)
         def crewai_wrapped_tool(*args, **kwargs):
 
-            return original_function(
-                *args,
-                **kwargs
-            )
+            return original_function(*args, **kwargs)
 
         # Preserve the original function signature so CrewAI
         # can detect arguments and their types.
         crewai_wrapped_tool.__signature__ = (
-            inspect.signature(original_function)
+            inspect.signature(relay_tool.function)
         )
 
         return crewai_wrapped_tool
@@ -178,7 +178,7 @@ class CrewAIAdapter:
 
         # Convert AgentFrameRelay tools -> CrewAI tools.
         tools = [
-            cls.tool(tool)
+            cls.tool(Tool.from_spec(tool))
             for tool in spec.tools
         ]
 

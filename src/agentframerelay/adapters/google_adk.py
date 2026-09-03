@@ -1,6 +1,7 @@
 import asyncio
 import keyword
 import re
+from typing import ClassVar
 
 from ..runtime import RuntimeAdapter, RuntimeResult
 from ..tool import Tool
@@ -8,11 +9,33 @@ from ..tool import Tool
 
 class GoogleADKAdapter(RuntimeAdapter):
     name = "google_adk"
+    _GOOGLE_PROVIDERS: ClassVar[frozenset[str]] = frozenset({"google", "google_ai", "gemini"})
+
+    @staticmethod
+    def _groq_model_class(lite_llm_class):
+        """Return an ADK LiteLLM model that omits Groq-unsupported history."""
+
+        class GroqLiteLlm(lite_llm_class):
+            async def generate_content_async(self, llm_request, stream=False):
+                # ADK maps prior ``Part(thought=True)`` values to the
+                # OpenAI-compatible ``reasoning_content`` message field.
+                # Groq rejects that field, so retain the conversation and tool
+                # calls while excluding only the replayed reasoning history.
+                sanitized_request = llm_request.model_copy(deep=True)
+                for content in sanitized_request.contents:
+                    if content.parts:
+                        content.parts = [part for part in content.parts if not part.thought]
+                async for response in super().generate_content_async(
+                    sanitized_request, stream=stream
+                ):
+                    yield response
+
+        return GroqLiteLlm
 
     @classmethod
     def tool(cls, tool: Tool):
         # Google ADK accepts typed Python callables as function tools.
-        return tool.function
+        return tool.adapter_callable()
 
     @classmethod
     def build(cls, spec):
@@ -29,7 +52,7 @@ class GoogleADKAdapter(RuntimeAdapter):
 
         model = cls._resolve_model(spec.model)
         tools = [
-            cls.tool(Tool(t.function, name=t.name, description=t.description))
+            cls.tool(Tool.from_spec(t))
             for t in spec.tools
         ]
 
@@ -40,20 +63,56 @@ class GoogleADKAdapter(RuntimeAdapter):
             tools=tools,
         )
 
-    @staticmethod
-    def _resolve_model(model_spec):
+    @classmethod
+    def _resolve_model(cls, model_spec):
+        provider = (getattr(model_spec, "provider", "") or "").strip().lower()
         model = model_spec.model if hasattr(model_spec, "model") else str(model_spec)
-        if not getattr(model_spec, "api_key", None):
-            return model
+        parameters = dict(getattr(model_spec, "parameters", {}) or {})
+
+        if provider in cls._GOOGLE_PROVIDERS:
+            # A bare model name preserves Google ADK's standard environment
+            # credential resolution. Configure Gemini only when needed.
+            if not getattr(model_spec, "api_key", None) and not parameters:
+                return model
+            allowed = {
+                "base_url", "client_kwargs", "speech_config",
+                "use_interactions_api", "retry_options",
+            }
+            unsupported = sorted(set(parameters) - allowed)
+            if unsupported:
+                raise ValueError(
+                    "Google ADK adapter does not support Gemini configuration "
+                    f"parameters for model '{model}': {', '.join(unsupported)}."
+                )
+            try:
+                from google.adk.models.google_llm import Gemini
+            except ImportError as exc:
+                raise ImportError(
+                    "Google ADK support requires google-adk. "
+                    "Install with: pip install 'agentframerelay[google-adk]'"
+                ) from exc
+            client_kwargs = dict(parameters.pop("client_kwargs", {}) or {})
+            if getattr(model_spec, "api_key", None):
+                client_kwargs["api_key"] = model_spec.api_key
+            return Gemini(model=model, client_kwargs=client_kwargs or None, **parameters)
 
         try:
-            from google.adk.models.google_llm import Gemini
+            import litellm
+            from google.adk.models.lite_llm import LiteLlm
         except ImportError as exc:
             raise ImportError(
-                "Google ADK support requires google-adk. "
-                "Install with: pip install 'agentframerelay[google-adk]'"
+                "Google ADK non-Google provider support requires LiteLLM. "
+                "Install with: pip install 'agentframerelay[google-adk,litellm]'"
             ) from exc
-        return Gemini(model=model, client_kwargs={"api_key": model_spec.api_key})
+        if provider not in litellm.provider_list:
+            raise ValueError(
+                "Google ADK adapter does not support "
+                f"provider '{model_spec.provider}' for model '{model}'."
+            )
+        if getattr(model_spec, "api_key", None):
+            parameters["api_key"] = model_spec.api_key
+        model_class = cls._groq_model_class(LiteLlm) if provider == "groq" else LiteLlm
+        return model_class(model=f"{provider}/{model}", **parameters)
 
     @staticmethod
     def _native_name(name: str) -> str:
