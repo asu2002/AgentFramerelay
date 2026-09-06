@@ -98,5 +98,12 @@ class Agent:
     def stream(self, input, **kwargs):
         return self._adapter().stream(self.native(), input, **kwargs)
 
+    async def arun(self, input, **kwargs) -> RuntimeResult:
+        return await self._adapter().arun(self.native(), input, **kwargs)
+
+    async def astream(self, input, **kwargs):
+        async for item in self._adapter().astream(self.native(), input, **kwargs):
+            yield item
+
     def capabilities(self):
         return self._adapter().capabilities()

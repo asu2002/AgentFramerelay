@@ -245,6 +245,65 @@ class CrewAIAdapter:
             runtime=cls.name,
         )
 
+    @classmethod
+    def stream(cls, native_agent, input, **kwargs):
+        task = Task(
+            description=input,
+            expected_output=kwargs.pop(
+                "expected_output",
+                "Provide a complete and accurate answer."
+            ),
+            agent=native_agent,
+        )
+
+        crew = Crew(
+            agents=[native_agent],
+            tasks=[task],
+            verbose=kwargs.pop("verbose", True),
+            stream=True,
+        )
+
+        return crew.kickoff()
+
+    @classmethod
+    async def arun(cls, native_agent, input, **kwargs):
+        task = Task(
+            description=input,
+            expected_output=kwargs.pop(
+                "expected_output",
+                "Provide a complete and accurate answer."
+            ),
+            agent=native_agent,
+        )
+        crew = Crew(
+            agents=[native_agent],
+            tasks=[task],
+            verbose=kwargs.pop("verbose", True),
+        )
+        return RuntimeResult(
+            output=await crew.kickoff_async(),
+            runtime=cls.name,
+        )
+
+    @classmethod
+    async def astream(cls, native_agent, input, **kwargs):
+        task = Task(
+            description=input,
+            expected_output=kwargs.pop(
+                "expected_output",
+                "Provide a complete and accurate answer."
+            ),
+            agent=native_agent,
+        )
+        crew = Crew(
+            agents=[native_agent],
+            tasks=[task],
+            verbose=kwargs.pop("verbose", True),
+            stream=True,
+        )
+        result = await crew.kickoff_async()
+        yield result
+
 
     # =========================================================
     # CAPABILITIES
@@ -254,7 +313,7 @@ class CrewAIAdapter:
     def capabilities(cls):
 
         return {
-            "streaming": False,
+            "streaming": True,
             "memory": True,
             "human_in_loop": True,
             "durable_execution": True,

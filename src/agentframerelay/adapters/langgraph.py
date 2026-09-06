@@ -41,6 +41,30 @@ class LangChainAdapter(RuntimeAdapter):
         )
 
     @classmethod
+    def stream(cls, native_agent, input, **kwargs):
+        payload = input if isinstance(input, dict) else {
+            "messages": [{"role": "user", "content": str(input)}]
+        }
+        return native_agent.stream(payload, **kwargs)
+
+    @classmethod
+    async def arun(cls, native_agent, input, **kwargs):
+        payload = input if isinstance(input, dict) else {
+            "messages": [{"role": "user", "content": str(input)}]
+        }
+        return RuntimeResult(
+            output=await native_agent.ainvoke(payload, **kwargs), runtime=cls.name
+        )
+
+    @classmethod
+    async def astream(cls, native_agent, input, **kwargs):
+        payload = input if isinstance(input, dict) else {
+            "messages": [{"role": "user", "content": str(input)}]
+        }
+        async for item in native_agent.astream(payload, **kwargs):
+            yield item
+
+    @classmethod
     def capabilities(cls):
         return {"streaming": True, "memory": True, "human_in_loop": True,
                 "durable_execution": True, "multi_agent": True}

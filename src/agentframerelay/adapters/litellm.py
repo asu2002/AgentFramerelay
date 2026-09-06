@@ -135,8 +135,12 @@ class LiteLLMAdapter(RuntimeAdapter):
         tools: list[dict[str, Any]],
         kwargs: dict[str, Any],
     ) -> dict[str, Any]:
-        model = f"{spec.model.provider}/{spec.model.model}"
+        provider = (spec.model.provider or "").strip().lower()
+        if provider in {"google", "google_ai", "gemini"}:
+            provider = "gemini"
+        model = f"{provider}/{spec.model.model}"
         request = {"model": model, "messages": messages, **spec.model.parameters, **kwargs}
+        request.setdefault("num_retries", 2)
         if spec.model.api_key:
             request["api_key"] = spec.model.api_key
         if tools:
