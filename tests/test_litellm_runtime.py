@@ -1,6 +1,8 @@
 from types import SimpleNamespace
 
 from agentframerelay import Agent, tool
+from agentframerelay.adapters.litellm import LiteLLMAdapter
+from agentframerelay.specs import AgentSpec, ModelSpec
 
 
 @tool
@@ -83,3 +85,41 @@ def test_litellm_runtime_executes_async_relay_tools(monkeypatch):
     assert result.metadata["tool_calls"] == [
         {"name": "async_add", "arguments": {"a": 25, "b": 75}, "result": 100}
     ]
+
+
+def test_litellm_resolves_google_models_for_litellm():
+    request = LiteLLMAdapter._request_arguments(
+        AgentSpec(
+            name="gemini-agent",
+            model=ModelSpec(
+                provider="google",
+                model="gemini-3.6-flash",
+                api_key="google-key",
+            ),
+        ),
+        messages=[{"role": "user", "content": "Hello"}],
+        tools=[],
+        kwargs={},
+    )
+
+    assert request["model"] == "gemini/gemini-3.6-flash"
+    assert request["api_key"] == "google-key"
+    assert request["num_retries"] == 2
+
+
+def test_litellm_preserves_configured_request_retries():
+    request = LiteLLMAdapter._request_arguments(
+        AgentSpec(
+            name="retry-agent",
+            model=ModelSpec(
+                provider="google",
+                model="gemini-3.6-flash",
+                parameters={"num_retries": 5},
+            ),
+        ),
+        messages=[{"role": "user", "content": "Hello"}],
+        tools=[],
+        kwargs={},
+    )
+
+    assert request["num_retries"] == 5

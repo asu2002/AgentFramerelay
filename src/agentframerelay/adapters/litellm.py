@@ -50,10 +50,7 @@ class LiteLLMAdapter(RuntimeAdapter):
 
         max_tool_rounds = kwargs.pop("max_tool_rounds", 8)
         messages = cls._messages(native_agent, input)
-        relay_tools = [
-            Tool(item.function, name=item.name, description=item.description)
-            for item in native_agent.tools
-        ]
+        relay_tools = [Tool.from_spec(item) for item in native_agent.tools]
         tools = cls.tools(relay_tools)
         tools_by_name = {item.name: item for item in relay_tools}
         request = cls._request_arguments(native_agent, messages, tools, kwargs)
@@ -104,10 +101,7 @@ class LiteLLMAdapter(RuntimeAdapter):
             ) from exc
 
         messages = cls._messages(native_agent, input)
-        tools = cls.tools([
-            Tool(item.function, name=item.name, description=item.description)
-            for item in native_agent.tools
-        ])
+        tools = cls.tools([Tool.from_spec(item) for item in native_agent.tools])
         return completion(
             **cls._request_arguments(native_agent, messages, tools, kwargs), stream=True
         )
@@ -141,8 +135,12 @@ class LiteLLMAdapter(RuntimeAdapter):
         tools: list[dict[str, Any]],
         kwargs: dict[str, Any],
     ) -> dict[str, Any]:
-        model = f"{spec.model.provider}/{spec.model.model}"
+        provider = (spec.model.provider or "").strip().lower()
+        if provider in {"google", "google_ai", "gemini"}:
+            provider = "gemini"
+        model = f"{provider}/{spec.model.model}"
         request = {"model": model, "messages": messages, **spec.model.parameters, **kwargs}
+        request.setdefault("num_retries", 2)
         if spec.model.api_key:
             request["api_key"] = spec.model.api_key
         if tools:

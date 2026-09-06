@@ -14,7 +14,7 @@ class LangChainAdapter(RuntimeAdapter):
                 "Install with: pip install 'agentframerelay[langchain]'"
             ) from exc
         return StructuredTool.from_function(
-            func=tool.function, name=tool.name, description=tool.description
+            func=tool.adapter_callable(), name=tool.name, description=tool.description
         )
 
     @classmethod
@@ -28,8 +28,7 @@ class LangChainAdapter(RuntimeAdapter):
         if not spec.model:
             raise ValueError("A model is required for the LangChain adapter.")
         model = _resolve_model(spec.model)
-        tools = [cls.tool(Tool(t.function, name=t.name, description=t.description))
-                 for t in spec.tools]
+        tools = [cls.tool(Tool.from_spec(t)) for t in spec.tools]
         return create_agent(model=model, tools=tools, system_prompt=spec.instructions)
 
     @classmethod
@@ -40,6 +39,30 @@ class LangChainAdapter(RuntimeAdapter):
         return RuntimeResult(
             output=native_agent.invoke(payload, **kwargs), runtime=cls.name
         )
+
+    @classmethod
+    def stream(cls, native_agent, input, **kwargs):
+        payload = input if isinstance(input, dict) else {
+            "messages": [{"role": "user", "content": str(input)}]
+        }
+        return native_agent.stream(payload, **kwargs)
+
+    @classmethod
+    async def arun(cls, native_agent, input, **kwargs):
+        payload = input if isinstance(input, dict) else {
+            "messages": [{"role": "user", "content": str(input)}]
+        }
+        return RuntimeResult(
+            output=await native_agent.ainvoke(payload, **kwargs), runtime=cls.name
+        )
+
+    @classmethod
+    async def astream(cls, native_agent, input, **kwargs):
+        payload = input if isinstance(input, dict) else {
+            "messages": [{"role": "user", "content": str(input)}]
+        }
+        async for item in native_agent.astream(payload, **kwargs):
+            yield item
 
     @classmethod
     def capabilities(cls):
@@ -62,7 +85,11 @@ def _resolve_model(model_spec):
     if getattr(model_spec, "api_key", None):
         kwargs["api_key"] = model_spec.api_key
 
+    provider = (model_spec.provider or "").strip().lower()
+    if provider in {"google", "google_ai", "gemini"}:
+        provider = "gemini"
+
     return ChatLiteLLM(
-        model=f"{model_spec.provider}/{model_spec.model}",
+        model=f"{provider}/{model_spec.model}",
         **kwargs
     )

@@ -92,9 +92,12 @@ class CrewAIAdapter:
 
         provider = (
             model_spec.provider or ""
-        ).strip()
+        ).strip().lower()
 
         model = model_spec.model
+
+        if provider in {"google", "google_ai", "gemini"}:
+            provider = "gemini"
 
         # -----------------------------------------------------
         # Build provider/model name
@@ -144,21 +147,18 @@ class CrewAIAdapter:
         into a native CrewAI tool.
         """
 
-        original_function = relay_tool.function
+        original_function = relay_tool.adapter_callable()
 
         @crew_tool(relay_tool.name)
         @wraps(original_function)
         def crewai_wrapped_tool(*args, **kwargs):
 
-            return original_function(
-                *args,
-                **kwargs
-            )
+            return original_function(*args, **kwargs)
 
         # Preserve the original function signature so CrewAI
         # can detect arguments and their types.
         crewai_wrapped_tool.__signature__ = (
-            inspect.signature(original_function)
+            inspect.signature(relay_tool.function)
         )
 
         return crewai_wrapped_tool
@@ -178,7 +178,7 @@ class CrewAIAdapter:
 
         # Convert AgentFrameRelay tools -> CrewAI tools.
         tools = [
-            cls.tool(tool)
+            cls.tool(Tool.from_spec(tool))
             for tool in spec.tools
         ]
 
@@ -245,6 +245,65 @@ class CrewAIAdapter:
             runtime=cls.name,
         )
 
+    @classmethod
+    def stream(cls, native_agent, input, **kwargs):
+        task = Task(
+            description=input,
+            expected_output=kwargs.pop(
+                "expected_output",
+                "Provide a complete and accurate answer."
+            ),
+            agent=native_agent,
+        )
+
+        crew = Crew(
+            agents=[native_agent],
+            tasks=[task],
+            verbose=kwargs.pop("verbose", True),
+            stream=True,
+        )
+
+        return crew.kickoff()
+
+    @classmethod
+    async def arun(cls, native_agent, input, **kwargs):
+        task = Task(
+            description=input,
+            expected_output=kwargs.pop(
+                "expected_output",
+                "Provide a complete and accurate answer."
+            ),
+            agent=native_agent,
+        )
+        crew = Crew(
+            agents=[native_agent],
+            tasks=[task],
+            verbose=kwargs.pop("verbose", True),
+        )
+        return RuntimeResult(
+            output=await crew.kickoff_async(),
+            runtime=cls.name,
+        )
+
+    @classmethod
+    async def astream(cls, native_agent, input, **kwargs):
+        task = Task(
+            description=input,
+            expected_output=kwargs.pop(
+                "expected_output",
+                "Provide a complete and accurate answer."
+            ),
+            agent=native_agent,
+        )
+        crew = Crew(
+            agents=[native_agent],
+            tasks=[task],
+            verbose=kwargs.pop("verbose", True),
+            stream=True,
+        )
+        result = await crew.kickoff_async()
+        yield result
+
 
     # =========================================================
     # CAPABILITIES
@@ -254,7 +313,7 @@ class CrewAIAdapter:
     def capabilities(cls):
 
         return {
-            "streaming": False,
+            "streaming": True,
             "memory": True,
             "human_in_loop": True,
             "durable_execution": True,
