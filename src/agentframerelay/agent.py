@@ -1,4 +1,5 @@
 from __future__ import annotations
+from .memory import Memory
 from .runtime import RuntimeAdapter, RuntimeResult
 from .specs import AgentSpec, ModelSpec
 from .tool import Tool
@@ -61,6 +62,7 @@ class Agent:
         metadata=None,
         role: str | None = None,
         goal: str | None = None,
+        memory: Memory | None = None,
     ):
         if isinstance(model, dict):
             model = ModelSpec(**model)
@@ -71,6 +73,7 @@ class Agent:
                 provider, model_name = "openai", model
             model = ModelSpec(provider=provider, model=model_name)
 
+        self.memory = memory or Memory()
         self.spec = AgentSpec(
             name=name,
             instructions=instructions,
@@ -81,6 +84,7 @@ class Agent:
             tools=[t.spec() if isinstance(t, Tool) else t for t in (tools or [])],
             runtime=runtime,
             metadata=metadata or {},
+            memory=self.memory,
         )
         self._native_agent = None
 
@@ -92,18 +96,137 @@ class Agent:
             self._native_agent = self._adapter().build(self.spec)
         return self._native_agent
 
+    def _memory_input(self, input):
+        if not self.memory.messages:
+            return input
+
+        if isinstance(input, dict) and "messages" in input:
+            messages = list(input["messages"])
+        elif isinstance(input, list):
+            messages = list(input)
+        else:
+            text = input.get("input", input) if isinstance(input, dict) else input
+            messages = [{"role": "user", "content": str(text)}]
+
+        if self.spec.runtime in {"crewai", "mock", "openai", "litellm"}:
+            history = list(self.memory.messages) + messages
+            content = "\n".join(
+                f"{msg.get('role', 'user').title()}: {msg.get('content', '')}"
+                for msg in history
+            )
+            return content
+
+        return {"messages": list(self.memory.messages) + messages}
+
+    @staticmethod
+    def _assistant_text(value):
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value
+
+        if hasattr(value, "model_dump"):
+            try:
+                value = value.model_dump(exclude_none=True)
+            except TypeError:
+                pass
+
+        if isinstance(value, dict):
+            if isinstance(value.get("parts"), list):
+                for part in reversed(value["parts"]):
+                    if isinstance(part, dict) and part.get("thought") is True:
+                        continue
+                    extracted = Agent._assistant_text(part)
+                    if extracted:
+                        return extracted
+
+            for key in ("output", "message", "content", "text", "response"):
+                if key in value:
+                    extracted = Agent._assistant_text(value[key])
+                    if extracted:
+                        return extracted
+            if isinstance(value.get("messages"), list):
+                for item in reversed(value["messages"]):
+                    extracted = Agent._assistant_text(item)
+                    if extracted:
+                        return extracted
+            return ""
+
+        if isinstance(value, (list, tuple, set)):
+            for item in reversed(list(value)):
+                extracted = Agent._assistant_text(item)
+                if extracted:
+                    return extracted
+            return ""
+
+        for attr in ("content", "output", "message", "text", "response", "final_response", "final_output"):
+            if hasattr(value, attr):
+                extracted = Agent._assistant_text(getattr(value, attr))
+                if extracted:
+                    return extracted
+
+        if hasattr(value, "parts"):
+            for part in reversed(list(getattr(value, "parts", []) or [])):
+                if getattr(part, "thought", False):
+                    continue
+                extracted = Agent._assistant_text(part)
+                if extracted:
+                    return extracted
+
+        return ""
+
+    def _record_memory(self, input, result):
+        if self.memory is None:
+            return
+
+        if isinstance(input, dict) and "messages" in input:
+            last_user_message = input["messages"][-1]
+            if isinstance(last_user_message, dict) and last_user_message.get("role") == "user":
+                self.memory.add_user_message(last_user_message.get("content", ""))
+        elif not isinstance(input, list):
+            text = input.get("input", input) if isinstance(input, dict) else input
+            self.memory.add_user_message(text)
+
+        if result is None:
+            return
+
+        if hasattr(result, "output"):
+            payload = result.output
+        else:
+            payload = result
+
+        self.memory.add_assistant_message(self._assistant_text(payload))
+
     def run(self, input, **kwargs) -> RuntimeResult:
-        return self._adapter().run(self.native(), input, **kwargs)
+        memory_input = self._memory_input(input)
+        result = self._adapter().run(self.native(), memory_input, **kwargs)
+        self._record_memory(input, result)
+        return result
 
     def stream(self, input, **kwargs):
-        return self._adapter().stream(self.native(), input, **kwargs)
+        memory_input = self._memory_input(input)
+        collected = []
+        for item in self._adapter().stream(self.native(), memory_input, **kwargs):
+            collected.append(item)
+            yield item
+        if collected:
+            self._record_memory(input, collected[-1])
 
     async def arun(self, input, **kwargs) -> RuntimeResult:
-        return await self._adapter().arun(self.native(), input, **kwargs)
+        memory_input = self._memory_input(input)
+        result = await self._adapter().arun(self.native(), memory_input, **kwargs)
+        self._record_memory(input, result)
+        return result
 
     async def astream(self, input, **kwargs):
-        async for item in self._adapter().astream(self.native(), input, **kwargs):
+        collected = []
+        async for item in self._adapter().astream(self.native(), self._memory_input(input), **kwargs):
+            collected.append(item)
             yield item
+        if collected:
+            self._record_memory(input, collected[-1])
 
     def capabilities(self):
-        return self._adapter().capabilities()
+        base = self._adapter().capabilities()
+        base["memory"] = base.get("memory", False) or self.memory is not None
+        return base

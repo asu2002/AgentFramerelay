@@ -32,3 +32,4 @@ class AgentSpec(BaseModel):
     tools: list[ToolSpec] = Field(default_factory=list)
     runtime: str = "mock"
     metadata: dict[str, Any] = Field(default_factory=dict)
+    memory: Any | None = None

@@ -1,7 +1,8 @@
-"""Run the same AgentFrameRelay agent with a selectable runtime and model.
+"""Run a real AgentFrameRelay agent with a selectable runtime, model, and memory.
 
 Set AGENT_RUNTIME, AGENT_MODEL_PROVIDER, AGENT_MODEL, and AGENT_API_KEY before
-running this file, or edit the defaults in the configuration block below.
+running this file, or edit the defaults below. Memory is optional and is passed
+into the Agent instance so the conversation state is preserved across calls.
 """
 
 import os
@@ -10,7 +11,7 @@ from _bootstrap import ensure_local_package
 
 ensure_local_package()
 
-from agentframerelay import Agent, tool
+from agentframerelay import Agent, Memory, tool
 
 
 # -----------------------------------------------------------------------------
@@ -21,8 +22,10 @@ RUNTIME = os.getenv("AGENT_RUNTIME", "crewai")
 MODEL_PROVIDER = os.getenv("AGENT_MODEL_PROVIDER", "google")
 MODEL_NAME = os.getenv("AGENT_MODEL", "gemini-3.7-flash")
 MODEL_API_KEY = os.getenv("AGENT_API_KEY") or os.getenv("GOOGLE_ADK_API_KEY")
+USE_MEMORY = os.getenv("AGENT_USE_MEMORY", "true").lower() in {"1", "true", "yes", "on"}
 
 # Example runtime choices:
+# RUNTIME = "mock"        # no external dependency, great for local testing
 # RUNTIME = "crewai"
 # RUNTIME = "langchain"
 # RUNTIME = "litellm"
@@ -56,9 +59,12 @@ def multiply(a: int, b: int) -> int:
     return a * b
 
 
+memory = Memory() if USE_MEMORY else None
+
 agent = Agent(
     name="math-agent",
     runtime=RUNTIME,
+    memory=memory,
     model={
         "provider": MODEL_PROVIDER,
         "model": MODEL_NAME,
@@ -74,22 +80,36 @@ IMPORTANT:
 - Use multiply for multiplication.
 - You may call multiple tools when necessary.
 """,
-
     tools=[
         add,
         multiply,
-    ]
+    ],
 )
 
 
-# The selected runtime will decide when to call add and multiply.
-result = agent.run(
-    "First add 25 and 75, then multiply the result by 10."
-)
-
+# -----------------------------------------------------------------------------
+# Real multi-turn memory demo: the same Agent instance is reused.
+# -----------------------------------------------------------------------------
+print("\n" + "=" * 60)
+print("FIRST RUN")
+print("=" * 60)
+result_one = agent.run("First add 25 and 75, then multiply the result by 10.")
+print(result_one)
 
 print("\n" + "=" * 60)
-print("AGENTFRAMERELAY RESULT")
+print("SECOND RUN")
 print("=" * 60)
+result_two = agent.run("Now add 5 and 7.")
+print(result_two)
 
-print(result)
+if agent.memory is not None:
+    print("\n" + "=" * 60)
+    print("MEMORY STATE")
+    print("=" * 60)
+    for idx, message in enumerate(agent.memory.messages, 1):
+        print(f"{idx}. {message['role']}: {message['content']}")
+
+print("\n" + "=" * 60)
+print("AGENT CAPABILITIES")
+print("=" * 60)
+print(agent.capabilities())
