@@ -6,7 +6,7 @@ from .errors import (
     ToolExecutionError,
     ToolInputError,
 )
-from .memory import Memory
+from .memory import Memory, SQLiteMemory, get_memory_backend, register_memory_backend
 from .runtime import AgentResult, RuntimeAdapter, RuntimeResult
 from .specs import AgentSpec, ModelSpec, ToolSpec
 from .tool import Tool, ToolContext, tool
@@ -18,10 +18,13 @@ __all__ = [
     "AgentSpec",
     "AsyncToolError",
     "Memory",
+    "SQLiteMemory",
     "ModelSpec",
     "RuntimeAdapter",
     "RuntimeResult",
     "Tool",
+    "get_memory_backend",
+    "register_memory_backend",
     "ToolContext",
     "ToolError",
     "ToolExecutionError",

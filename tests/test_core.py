@@ -167,3 +167,22 @@ def test_agent_memory_extracts_final_output_from_openai_run_result():
 
     agent = Agent(name="assistant", runtime="openai", memory=Memory())
     assert agent._assistant_text(RunResult("Visible final answer")) == "Visible final answer"
+
+
+def test_sqlite_memory_persists_session_history_across_instances(tmp_path):
+    from agentframerelay.memory import SQLiteMemory
+
+    db_path = tmp_path / "agent_memory.sqlite"
+    first = SQLiteMemory(path=str(db_path), session_id="demo-session")
+    first.add_user_message("My name is Asutosh")
+    first.add_assistant_message("Nice to meet you")
+
+    second = SQLiteMemory(path=str(db_path), session_id="demo-session")
+    assert second.messages == [
+        {"role": "user", "content": "My name is Asutosh"},
+        {"role": "assistant", "content": "Nice to meet you"},
+    ]
+
+    second.clear()
+    assert second.messages == []
+    assert SQLiteMemory(path=str(db_path), session_id="demo-session").messages == []
